@@ -1,0 +1,413 @@
+--// MODERN AIM HUB
+--// Uso: no seu próprio jogo
+--// loadstring(game:HttpGet("SUA_URL_RAW"))()
+
+if getgenv and getgenv().ModernAimHub then
+    return
+end
+
+if getgenv then
+    getgenv().ModernAimHub = true
+end
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local LP = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local Settings = {
+    Enabled = false,
+    Flick = true,
+    FOV = 150,
+    Smoothness = 0.28,
+    TeamCheck = true,
+    TargetPart = "Head"
+}
+
+--==================================================
+-- TARGET
+--==================================================
+
+local function GetTarget()
+    local center = Camera.ViewportSize / 2
+    local closest
+    local closestDistance = Settings.FOV
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP then
+
+            if Settings.TeamCheck and player.Team == LP.Team then
+                continue
+            end
+
+            local char = player.Character
+            if not char then
+                continue
+            end
+
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            local part = char:FindFirstChild(Settings.TargetPart)
+
+            if humanoid and humanoid.Health > 0 and part then
+                local screenPos, visible =
+                    Camera:WorldToViewportPoint(part.Position)
+
+                if visible and screenPos.Z > 0 then
+                    local distance = (
+                        Vector2.new(screenPos.X, screenPos.Y)
+                        - Vector2.new(center.X, center.Y)
+                    ).Magnitude
+
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closest = part
+                    end
+                end
+            end
+        end
+    end
+
+    return closest
+end
+
+--==================================================
+-- AIM ENGINE
+--==================================================
+
+local function AimAt(part)
+    if not part then
+        return
+    end
+
+    local cameraPosition = Camera.CFrame.Position
+
+    local desired = CFrame.lookAt(
+        cameraPosition,
+        part.Position
+    )
+
+    if Settings.Flick then
+        -- movimento rápido em direção ao alvo
+        Camera.CFrame = Camera.CFrame:Lerp(
+            desired,
+            math.clamp(Settings.Smoothness * 3, 0.05, 1)
+        )
+    else
+        -- mira suave
+        Camera.CFrame = Camera.CFrame:Lerp(
+            desired,
+            math.clamp(Settings.Smoothness, 0.01, 1)
+        )
+    end
+end
+
+--==================================================
+-- GUI
+--==================================================
+
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "ModernAimHub"
+Gui.ResetOnSpawn = false
+Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Gui.Parent = LP:WaitForChild("PlayerGui")
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.fromOffset(350, 330)
+Main.Position = UDim2.new(.5, -175, .5, -165)
+Main.BackgroundColor3 = Color3.fromRGB(14, 15, 21)
+Main.BorderSizePixel = 0
+Main.Parent = Gui
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 18)
+Corner.Parent = Main
+
+local Border = Instance.new("UIStroke")
+Border.Color = Color3.fromRGB(55, 58, 72)
+Border.Thickness = 1
+Border.Parent = Main
+
+--==================================================
+-- HEADER
+--==================================================
+
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0, 62)
+Header.BackgroundTransparency = 1
+Header.Parent = Main
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -70, 1, 0)
+Title.Position = UDim2.fromOffset(20, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "AIM  //  HUB"
+Title.TextColor3 = Color3.fromRGB(245,245,250)
+Title.TextSize = 20
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+local Subtitle = Instance.new("TextLabel")
+Subtitle.Size = UDim2.new(1, -70, 0, 18)
+Subtitle.Position = UDim2.fromOffset(21, 35)
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "PRIVATE FPS SYSTEM"
+Subtitle.TextColor3 = Color3.fromRGB(120,123,135)
+Subtitle.TextSize = 9
+Subtitle.Font = Enum.Font.GothamMedium
+Subtitle.TextXAlignment = Enum.TextXAlignment.Left
+Subtitle.Parent = Header
+
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.fromOffset(38,38)
+Close.Position = UDim2.new(1,-48,0,12)
+Close.BackgroundTransparency = 1
+Close.Text = "×"
+Close.TextColor3 = Color3.fromRGB(190,192,200)
+Close.TextSize = 25
+Close.Font = Enum.Font.GothamBold
+Close.Parent = Header
+
+--==================================================
+-- BUTTON FACTORY
+--==================================================
+
+local function Button(text, y)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1,-40,0,42)
+    b.Position = UDim2.fromOffset(20,y)
+    b.BackgroundColor3 = Color3.fromRGB(27,29,38)
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.TextColor3 = Color3.fromRGB(225,226,232)
+    b.TextSize = 13
+    b.Font = Enum.Font.GothamMedium
+    b.AutoButtonColor = false
+    b.Parent = Main
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0,11)
+    c.Parent = b
+
+    return b
+end
+
+--==================================================
+-- AIM BUTTON
+--==================================================
+
+local AimButton = Button("AIMBOT                         OFF",75)
+
+local function UpdateAimButton()
+    if Settings.Enabled then
+        AimButton.Text = "AIMBOT                         ON"
+        AimButton.BackgroundColor3 =
+            Color3.fromRGB(35,85,60)
+    else
+        AimButton.Text = "AIMBOT                         OFF"
+        AimButton.BackgroundColor3 =
+            Color3.fromRGB(27,29,38)
+    end
+end
+
+AimButton.MouseButton1Click:Connect(function()
+    Settings.Enabled = not Settings.Enabled
+    UpdateAimButton()
+end)
+
+--==================================================
+-- FLICK
+--==================================================
+
+local FlickButton = Button("FLICK MODE                    ON",125)
+
+local function UpdateFlick()
+    FlickButton.Text =
+        "FLICK MODE                    " ..
+        (Settings.Flick and "ON" or "OFF")
+end
+
+FlickButton.MouseButton1Click:Connect(function()
+    Settings.Flick = not Settings.Flick
+    UpdateFlick()
+end)
+
+--==================================================
+-- FOV
+--==================================================
+
+local FOVLabel = Instance.new("TextLabel")
+FOVLabel.Size = UDim2.fromOffset(100,35)
+FOVLabel.Position = UDim2.fromOffset(20,180)
+FOVLabel.BackgroundTransparency = 1
+FOVLabel.Text = "FOV"
+FOVLabel.TextColor3 = Color3.fromRGB(170,173,183)
+FOVLabel.TextSize = 13
+FOVLabel.Font = Enum.Font.GothamMedium
+FOVLabel.TextXAlignment = Enum.TextXAlignment.Left
+FOVLabel.Parent = Main
+
+local FOVBox = Instance.new("TextBox")
+FOVBox.Size = UDim2.fromOffset(100,35)
+FOVBox.Position = UDim2.new(1,-120,0,180)
+FOVBox.BackgroundColor3 = Color3.fromRGB(25,27,35)
+FOVBox.BorderSizePixel = 0
+FOVBox.Text = tostring(Settings.FOV)
+FOVBox.TextColor3 = Color3.fromRGB(235,235,240)
+FOVBox.TextSize = 13
+FOVBox.Font = Enum.Font.Gotham
+FOVBox.ClearTextOnFocus = false
+FOVBox.Parent = Main
+
+local FOVCorner = Instance.new("UICorner")
+FOVCorner.CornerRadius = UDim.new(0,9)
+FOVCorner.Parent = FOVBox
+
+FOVBox.FocusLost:Connect(function()
+    local n = tonumber(FOVBox.Text)
+
+    if n then
+        Settings.FOV = math.clamp(n,20,500)
+        FOVBox.Text = tostring(Settings.FOV)
+    else
+        FOVBox.Text = tostring(Settings.FOV)
+    end
+end)
+
+--==================================================
+-- SMOOTHNESS
+--==================================================
+
+local SmoothLabel = Instance.new("TextLabel")
+SmoothLabel.Size = UDim2.fromOffset(100,35)
+SmoothLabel.Position = UDim2.fromOffset(20,225)
+SmoothLabel.BackgroundTransparency = 1
+SmoothLabel.Text = "SMOOTH"
+SmoothLabel.TextColor3 = Color3.fromRGB(170,173,183)
+SmoothLabel.TextSize = 13
+SmoothLabel.Font = Enum.Font.GothamMedium
+SmoothLabel.TextXAlignment = Enum.TextXAlignment.Left
+SmoothLabel.Parent = Main
+
+local SmoothBox = Instance.new("TextBox")
+SmoothBox.Size = UDim2.fromOffset(100,35)
+SmoothBox.Position = UDim2.new(1,-120,0,225)
+SmoothBox.BackgroundColor3 = Color3.fromRGB(25,27,35)
+SmoothBox.BorderSizePixel = 0
+SmoothBox.Text = tostring(Settings.Smoothness)
+SmoothBox.TextColor3 = Color3.fromRGB(235,235,240)
+SmoothBox.TextSize = 13
+SmoothBox.Font = Enum.Font.Gotham
+SmoothBox.ClearTextOnFocus = false
+SmoothBox.Parent = Main
+
+local SmoothCorner = Instance.new("UICorner")
+SmoothCorner.CornerRadius = UDim.new(0,9)
+SmoothCorner.Parent = SmoothBox
+
+SmoothBox.FocusLost:Connect(function()
+    local n = tonumber(SmoothBox.Text)
+
+    if n then
+        Settings.Smoothness =
+            math.clamp(n,.01,1)
+
+        SmoothBox.Text =
+            tostring(Settings.Smoothness)
+    else
+        SmoothBox.Text =
+            tostring(Settings.Smoothness)
+    end
+end)
+
+--==================================================
+-- DRAG
+--==================================================
+
+local dragging = false
+local dragStart
+local startPosition
+
+Header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = true
+        dragStart = input.Position
+        startPosition = Main.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if not dragging then return end
+
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch then
+
+        local delta = input.Position - dragStart
+
+        Main.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+--==================================================
+-- MINIMIZE
+--==================================================
+
+local Open = Instance.new("TextButton")
+Open.Size = UDim2.fromOffset(55,55)
+Open.Position = UDim2.fromOffset(20,180)
+Open.BackgroundColor3 = Color3.fromRGB(14,15,21)
+Open.BorderSizePixel = 0
+Open.Text = "A"
+Open.TextColor3 = Color3.fromRGB(245,245,250)
+Open.TextSize = 20
+Open.Font = Enum.Font.GothamBold
+Open.Visible = false
+Open.Parent = Gui
+
+local OpenCorner = Instance.new("UICorner")
+OpenCorner.CornerRadius = UDim.new(1,0)
+OpenCorner.Parent = Open
+
+Close.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    Open.Visible = true
+end)
+
+Open.MouseButton1Click:Connect(function()
+    Main.Visible = true
+    Open.Visible = false
+end)
+
+--==================================================
+-- AIM LOOP
+--==================================================
+
+RunService.RenderStepped:Connect(function()
+    if not Settings.Enabled then
+        return
+    end
+
+    local target = GetTarget()
+
+    if target then
+        AimAt(target)
+    end
+end)
+
+print("[ModernAimHub] Loaded.")
